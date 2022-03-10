@@ -96,9 +96,9 @@ ggplot(counts_tt, aes(x = sample, weight = counts, fill = sampleName)) +
   theme_bw()
 
 counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
-  select(feature, sample, counts, tissue, cell.type, timepoint, sampleName)
+  dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName)
 counts_scaled <- counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
-  dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, sampleName) %>%
+  dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName) %>%
   identify_abundant(factor_of_interest = sampleName, minimum_counts = 25, minimum_proportion = 0.25) %>%
   scale_abundance(method = "TMM")
 
@@ -136,16 +136,16 @@ counts_scal_PCA <-
   reduce_dimensions(method = "PCA", top = 500)
 counts_scal_PCA <-
   counts_scaled %>%
-  filter(tissue == "TUM") %>%
-  filter(sample != "TUM4-TPEX-late") %>%
   reduce_dimensions(method = "PCA", top = 100)
 
 counts_scal_PCA %>%
   mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
+  mutate(mouse = paste("#", mouse, sep = "")) %>%
+  filter(mouse != "#4") %>%
   pivot_sample() %>%
-  ggplot(aes(x = PC1, y = PC2, colour = sampleName, shape = timepoint)) +
+  ggplot(aes(x = PC1, y = PC2, colour = sampleName, shape = mouse)) +
   geom_point(size = 4) +
-  geom_text_repel(aes(label = sample), show.legend = FALSE) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top100.pdf"), device = "pdf")
