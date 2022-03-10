@@ -136,15 +136,16 @@ counts_scal_PCA <-
   reduce_dimensions(method = "PCA", top = 500)
 counts_scal_PCA <-
   counts_scaled %>%
-  filter(timepoint == "late") %>%
+  filter(tissue == "TUM") %>%
+  filter(sample != "TUM4-TPEX-late") %>%
   reduce_dimensions(method = "PCA", top = 100)
 
 counts_scal_PCA %>%
   mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
   pivot_sample() %>%
-  ggplot(aes(x = PC1, y = PC2, colour = tis_cel, shape = tissue)) +
+  ggplot(aes(x = PC1, y = PC2, colour = sampleName, shape = timepoint)) +
   geom_point(size = 4) +
-  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  geom_text_repel(aes(label = sample), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top100.pdf"), device = "pdf")
