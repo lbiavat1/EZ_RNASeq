@@ -73,6 +73,7 @@ counts_tt <- pivot_longer(myTibble, cols = c(2:18),
 names(counts_tt)[1] <- "feature"
   
 "Tcf7" %in% counts_tt$feature
+counts_tt
 
 ########################## prep for data analysis #############################
 
@@ -83,14 +84,16 @@ names(counts_tt)[1] <- "feature"
 # write_csv(as.data.frame(myInfo), "experiment_info.csv")
 # myInfo <- read_csv("experiment_info.csv")
 # myInfo <- myInfo %>%
-#   mutate(sampleName = paste(tissue, cell.type, timepoint, sep = "_"))
+#   mutate(mouse = paste("#", mouse, sep = ""))
 # write_csv(myInfo, "experiment_info.csv")
 
 myInfo <- read_csv("experiment_info.csv")
 myInfo
+
 counts_tt <- counts_tt %>% left_join(myInfo)
 counts <- counts_tt %>%
   tidybulk(.sample = sample, .transcript = feature, .abundance = counts)
+counts
 ggplot(counts_tt, aes(x = sample, weight = counts, fill = sampleName)) +
   geom_bar() +
   theme_bw()
@@ -140,12 +143,10 @@ counts_scal_PCA <-
 
 counts_scal_PCA %>%
   mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
-  mutate(mouse = paste("#", mouse, sep = "")) %>%
-  filter(mouse != "#4") %>%
   pivot_sample() %>%
-  ggplot(aes(x = PC1, y = PC2, colour = sampleName, shape = mouse)) +
+  ggplot(aes(x = PC1, y = PC2, colour = cell.type, shape = tissue)) +
   geom_point(size = 4) +
-  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  geom_text_repel(aes(label = sample), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top100.pdf"), device = "pdf")
@@ -176,7 +177,8 @@ name_list <- name_list %>%
   as_tibble() %>%
   mutate(name_list = ifelse(value %in% row_labels, as.character(value), "")) %>%
   pull(name_list)
-
+"Elane" %in% counts_scaled$feature
+counts_scaled %>% filter(feature == "Elane")
 
 hm <- counts_scaled %>%
   
@@ -200,18 +202,20 @@ hm <- counts_scaled %>%
     palette_value = c("blue", "white", "red"),
     show_column_names = FALSE,
     show_row_names = TRUE,
-    column_km = 3,
-    column_km_repeats = 500,
-    row_km = 4,
+    column_km = 2,
+    column_km_repeats = 100,
+    row_km = 5,
     row_km_repeats = 500,
     row_title = "%s",
-    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A"), font = c(1,2,3))
+    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
+                                       "#33A02C", "#FB9A99"), 
+                              font = c(1,2,3))
   ) %>%
-  add_tile(c(tissue, timepoint, cell.type))
+  add_tile(c(tissue, cell.type))
 hm
-pdf(file = file.path(plotDir, "heatmap_top500_RowClusters.pdf"))
-hm
-dev.off()
+# pdf(file = file.path(plotDir, "heatmap_top500_ALL_RowClusters.pdf"))
+# hm
+# dev.off()
 
 # DESeq2
 counts_de_DESeq2 <- counts_scaled %>%
@@ -233,10 +237,10 @@ counts_de <- counts_scaled %>%
 
 
 deseq2 <- counts_de_DESeq2 %>% pivot_transcript(.transcript = feature) %>% 
-  filter(.abundant) %>% arrange(desc(log2FoldChange)) %>% pull(feature) %>% head(50)
+  filter(.abundant) %>% filter(padj < 0.05) %>% pull(feature)
 
 edgeR <- counts_de %>% pivot_transcript(.transcript = feature) %>% 
-  filter(.abundant) %>% arrange(desc(logFC)) %>% pull(feature) %>% head(50)
+  filter(.abundant) %>% filter(FDR < 0.05) %>% pull(feature)
 
 sum(deseq2 %in% edgeR)/length(deseq2)
 
@@ -248,9 +252,9 @@ topgenes <-
 
 topgenes_symbols <- topgenes %>% pull(feature)
 
-counts_de %>% filter(feature == "Lcn2") %>% dplyr::select(feature, FDR, logFC)
+counts_de %>% filter(feature == "Cd177") %>% dplyr::select(feature, FDR, logFC)
 
-topgenes_symbols
+topgenes_symbols <- c(topgenes_symbols, "Elane", "Mpo")
 
 volcano <- counts_de %>%
   pivot_transcript() %>%
