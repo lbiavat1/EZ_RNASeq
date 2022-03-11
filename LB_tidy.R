@@ -140,6 +140,7 @@ counts_scal_PCA <-
 counts_scal_PCA <-
   counts_scaled %>%
   reduce_dimensions(method = "PCA", top = 100)
+attr(counts_scal_PCA, "internals")$PCA
 
 counts_scal_PCA %>%
   mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
