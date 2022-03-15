@@ -100,9 +100,10 @@ ggplot(counts_tt, aes(x = sample, weight = counts, fill = sampleName)) +
 
 counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
   dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName)
+
 counts_scaled <- counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
   dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName) %>%
-  identify_abundant(factor_of_interest = sampleName, minimum_counts = 25, minimum_proportion = 0.25) %>%
+  identify_abundant(factor_of_interest = sampleName, minimum_counts = 100, minimum_proportion = 0.50) %>%
   scale_abundance(method = "TMM")
 
 counts_scaled %>%
@@ -203,7 +204,7 @@ hm <- counts_scaled %>%
     palette_value = c("blue", "white", "red"),
     show_column_names = FALSE,
     show_row_names = TRUE,
-    column_km = 2,
+    column_km = 3,
     column_km_repeats = 100,
     row_km = 5,
     row_km_repeats = 500,
@@ -212,11 +213,11 @@ hm <- counts_scaled %>%
                                        "#33A02C", "#FB9A99"), 
                               font = c(1,2,3))
   ) %>%
-  add_tile(c(tissue, cell.type))
+  add_tile(c(tissue, timepoint, cell.type))
 hm
-# pdf(file = file.path(plotDir, "heatmap_top500_ALL_RowClusters.pdf"))
-# hm
-# dev.off()
+pdf(file = file.path(plotDir, "heatmap_top500_ALL_RowClusters_0315.pdf"))
+hm
+dev.off()
 
 # DESeq2
 counts_de_DESeq2 <- counts_scaled %>%
