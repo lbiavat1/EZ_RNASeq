@@ -88,9 +88,11 @@ counts_tt
 # write_csv(myInfo, "experiment_info.csv")
 
 myInfo <- read_csv("experiment_info.csv")
-myInfo
+myInfo <- myInfo %>%
+  mutate(mouse = gsub("#", "", mouse))
 
 counts_tt <- counts_tt %>% left_join(myInfo)
+counts_tt
 counts <- counts_tt %>%
   tidybulk(.sample = sample, .transcript = feature, .abundance = counts)
 counts
@@ -222,7 +224,7 @@ dev.off()
 # DESeq2
 counts_de_DESeq2 <- counts_scaled %>%
   test_differential_abundance(
-    .formula = ~ 0 + tissue,
+    .formula = ~ 0 + tissue + mouse,
     .contrasts = list(c("tissue", "BM", "TUM")),
     method = "DESeq2",
     omit_contrast_in_colnames = TRUE
@@ -231,7 +233,7 @@ counts_de_DESeq2 <- counts_scaled %>%
 # edgeR
 counts_de <- counts_scaled %>%
   test_differential_abundance(
-    .formula = ~ 0 + tissue,
+    .formula = ~ 0 + tissue + mouse,
     .contrasts = c("tissueBM - tissueTUM"),
     method = "edgeR_quasi_likelihood",
     omit_contrast_in_colnames = TRUE
@@ -250,13 +252,11 @@ topgenes <-
   counts_de %>%
   pivot_transcript() %>%
   arrange(FDR) %>%
-  head(20)
+  head(50)
 
 topgenes_symbols <- topgenes %>% pull(feature)
 
-counts_de %>% filter(feature == "Cd177") %>% dplyr::select(feature, FDR, logFC)
-
-topgenes_symbols <- c(topgenes_symbols, "Elane", "Mpo")
+counts_de %>% filter(feature == "") %>% dplyr::select(feature, FDR, logFC)
 
 volcano <- counts_de %>%
   pivot_transcript() %>%
