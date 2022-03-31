@@ -75,6 +75,7 @@ names(counts_tt)[1] <- "feature"
   
 "Tcf7" %in% counts_tt$feature
 "Gzmb" %in% counts_tt$feature
+"Elane" %in% counts_tt$feature
 counts_tt
 
 ########################## prep for data analysis #############################
