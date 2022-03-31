@@ -70,9 +70,11 @@ counts_tt <- pivot_longer(myTibble, cols = c(2:18),
                           names_to = "sample", values_to = "counts") %>%
   dplyr::inner_join(grcm38, by = c("feature" = "ensgene")) %>%
   dplyr::select(symbol, sample, counts)
+counts_tt
 names(counts_tt)[1] <- "feature"
   
 "Tcf7" %in% counts_tt$feature
+"Gzmb" %in% counts_tt$feature
 counts_tt
 
 ########################## prep for data analysis #############################
@@ -242,11 +244,14 @@ counts_de <- counts_scaled %>%
 
 deseq2 <- counts_de_DESeq2 %>% pivot_transcript(.transcript = feature) %>% 
   filter(.abundant) %>% filter(padj < 0.05) %>% pull(feature)
+length(deseq2)
 
 edgeR <- counts_de %>% pivot_transcript(.transcript = feature) %>% 
   filter(.abundant) %>% filter(FDR < 0.05) %>% pull(feature)
+length(edgeR)
 
 sum(deseq2 %in% edgeR)/length(deseq2)
+sum(edgeR %in% deseq2)/length(edgeR)
 
 topgenes <-
   counts_de %>%
