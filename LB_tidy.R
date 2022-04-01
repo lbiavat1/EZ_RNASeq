@@ -47,6 +47,15 @@ dir.create(plotDir)
 
 raw_cts <- file.path(PrimaryDirectory, "RNASeq_rawcounts")
 files <- list.files(raw_cts)
+
+path.to.files <- file.path(PrimaryDirectory, "RNASeq_rawcounts", files)
+list.of.tibbles <- map(path.to.files, read_csv)
+myTibble <- list.of.tibbles %>% purrr::reduce(., inner_join)
+
+mtb <- map(file.path(PrimaryDirectory, "RNASeq_rawcounts", files), read_csv) %>% 
+  purrr::reduce(., inner_join)
+mtb
+
 nfiles <- length(list.files(raw_cts))
 
 t <- read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
@@ -58,6 +67,8 @@ for(i in 2:nfiles){
                         read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
                                            files[i])))
 }
+
+all.equal(mtb, myTibble)
 
 names(myTibble)[1] <- "feature"
 myTibble
