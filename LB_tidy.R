@@ -170,23 +170,6 @@ tt_mds %>%
   theme_bw()
 # ggsave(file.path(plotDir, "MDS_top500.pdf"), device = "pdf")
 
-
-row_labels <- c("DEFA1", "DEFA3", "DEFA4", "ELANE", "CD177", "PRTN3", "MPO", "CXCL12", "FABP4", "PKLR")
-
-name_list <- counts_scaled %>%
-  filter(.abundant) %>%
-  keep_variable( .abundance = counts_scaled, top = 500) %>%
-  as_tibble() %>%
-  pull(feature)
-name_list <- unique(name_list)
-name_list
-name_list <- name_list %>% 
-  as_tibble() %>%
-  mutate(name_list = ifelse(value %in% row_labels, as.character(value), "")) %>%
-  pull(name_list)
-"Elane" %in% counts_scaled$feature
-counts_scaled %>% filter(feature == "Elane")
-
 hm <- counts_scaled %>%
   
   # filter lowly abundant
@@ -221,6 +204,76 @@ hm <- counts_scaled %>%
   add_tile(c(tissue, timepoint, cell.type))
 hm
 pdf(file = file.path(plotDir, "heatmap_top500_ALL_RowClusters_0315.pdf"))
+hm
+dev.off()
+
+#################### Heatmap - specific genes #################################
+row_labels <- c("Cx3cr1", "S1pr5")
+
+# original matrix
+
+matrix <- counts_scaled %>%
+  
+  # filter lowly abundant
+  filter(.abundant) %>%
+  
+  # extract most variable genes
+  keep_variable( .abundance = counts_scaled, top = 500) %>%
+  
+  as_tibble() %>%
+  
+  mutate(genes = feature)
+
+name_list <- matrix %>% 
+  pull(feature) 
+name_list <- unique(name_list)
+row_labels %in% name_list
+
+name_list <- name_list %>% 
+  as_tibble() %>%
+  rownames_to_column() %>%
+  mutate(position = ifelse(value %in% row_labels, rowname, 0)) %>%
+  filter(position > 0) %>%
+  dplyr::select(value, position)
+
+name_list
+
+
+ha <- rowAnnotation(foo = anno_mark(at = name_list %>% pull(position) %>% as.integer(),
+                                    labels = name_list %>% pull(value),
+                                    which = "row", side = "right"))
+
+ha
+
+
+
+
+hm <-  matrix %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = genes,
+    .value = counts_scaled,
+    transform = log1p,
+    palette_value = c("blue", "white", "red"),
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    row_names_side = "right",
+    column_km = 3,
+    column_km_repeats = 500,
+    cluster_rows = TRUE,
+    row_km = 5,
+    row_km_repeats = 500,
+    row_title = "%s",
+    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
+                                       "#33A02C", "#FB9A99"), 
+                              font = c(1,2,3))
+  ) %>%
+  add_tile(c(tissue, timepoint, cell.type))
+
+
+pdf(file = file.path(plotDir, "heatmap_top500_ALL_NAMES.pdf"))
 hm
 dev.off()
 
