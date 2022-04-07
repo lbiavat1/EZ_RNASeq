@@ -164,7 +164,7 @@ counts_scal_PCA %>%
   pivot_sample() %>%
   ggplot(aes(x = PC1, y = PC2, colour = cell.type, shape = tissue)) +
   geom_point(size = 4) +
-  geom_text_repel(aes(label = sample), show.legend = FALSE) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top100.pdf"), device = "pdf")
