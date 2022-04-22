@@ -87,6 +87,7 @@ names(counts_tt)[1] <- "feature"
 "Tcf7" %in% counts_tt$feature
 "Gzmb" %in% counts_tt$feature
 "Elane" %in% counts_tt$feature
+"Fcer1g" %in% counts_tt$feature
 counts_tt
 
 ########################## prep for data analysis #############################
@@ -167,7 +168,7 @@ counts_scal_PCA %>%
   geom_text_repel(aes(label = ""), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
-# ggsave(file.path(plotDir, "PCA_top100.pdf"), device = "pdf")
+# ggsave(file.path(plotDir, "PCA_top100_late_noLables.pdf"), device = "pdf")
 
 # Reduce data dimensionality with arbitrary number of dimensions
 tt_mds <- counts_scaled %>% reduce_dimensions(method = "MDS", .dims = 6, top = 500)
@@ -219,7 +220,7 @@ hm
 dev.off()
 
 #################### Heatmap - specific genes #################################
-row_labels <- c("Cx3cr1", "S1pr5")
+row_labels <- c("Cx3cr1", "Fcer1g")
 
 # original matrix
 
@@ -283,7 +284,7 @@ hm <-  matrix %>%
   ) %>%
   add_tile(c(tissue, timepoint, cell.type))
 
-
+hm
 pdf(file = file.path(plotDir, "heatmap_top500_ALL_NAMES.pdf"))
 hm
 dev.off()
