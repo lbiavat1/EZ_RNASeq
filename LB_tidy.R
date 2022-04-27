@@ -15,7 +15,7 @@ library(DESeq2)
 library(limma)
 library(edgeR)
 library(fgsea)
-library(hciR)
+# library(hciR)
 library(IHW)
 
 
@@ -157,6 +157,8 @@ counts_scal_PCA <-
   reduce_dimensions(method = "PCA", top = 500)
 counts_scal_PCA <-
   counts_scaled %>%
+  dplyr::filter(timepoint == "late") %>%
+  dplyr::filter(cell.type == "TPEX") %>%
   reduce_dimensions(method = "PCA", top = 100)
 attr(counts_scal_PCA, "internals")$PCA
 
@@ -169,6 +171,10 @@ counts_scal_PCA %>%
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top100_late_noLables.pdf"), device = "pdf")
+
+counts_scaled <- counts_scaled %>%
+  dplyr::filter(timepoint == "late") %>%
+  dplyr::filter(cell.type == "TPEX")
 
 # Reduce data dimensionality with arbitrary number of dimensions
 tt_mds <- counts_scaled %>% reduce_dimensions(method = "MDS", .dims = 6, top = 500)
@@ -204,18 +210,18 @@ hm <- counts_scaled %>%
     palette_value = c("blue", "white", "red"),
     show_column_names = FALSE,
     show_row_names = TRUE,
-    column_km = 3,
+    column_km = 2,
     column_km_repeats = 100,
-    row_km = 5,
+    row_km = 2,
     row_km_repeats = 500,
     row_title = "%s",
     row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
                                        "#33A02C", "#FB9A99"), 
                               font = c(1,2,3))
   ) %>%
-  add_tile(c(tissue, timepoint, cell.type))
+  add_tile(c(tissue))
 hm
-pdf(file = file.path(plotDir, "heatmap_top500_ALL_RowClusters_0315.pdf"))
+pdf(file = file.path(plotDir, "heatmap_top500_TPEX-late.pdf"))
 hm
 dev.off()
 
