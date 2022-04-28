@@ -75,8 +75,6 @@ names(mtb)[1] <- "feature"
 grcm38
 grcm38_tx2gene
 
-pivot_longer(mtb, cols = c(2:18),
-             names_to = "sample", values_to = "counts")
 counts_tt <- pivot_longer(mtb, cols = c(2:18),
                           names_to = "sample", values_to = "counts") %>%
   dplyr::inner_join(grcm38, by = c("feature" = "ensgene")) %>%
@@ -111,7 +109,9 @@ myInfo
 counts_tt <- counts_tt %>% left_join(myInfo)
 counts_tt
 counts <- counts_tt %>%
-  tidybulk(.sample = sample, .transcript = feature, .abundance = counts)
+  tidybulk(.sample = sample, .transcript = feature, .abundance = counts) %>%
+  aggregate_duplicates()
+counts
 counts
 ggplot(counts_tt, aes(x = sample, weight = counts, fill = sampleName)) +
   geom_bar() +
@@ -258,7 +258,7 @@ hm <- TEFF %>%
     show_row_names = TRUE,
     column_km = 2,
     column_km_repeats = 100,
-    row_km = 2,
+    row_km = 3,
     row_km_repeats = 500,
     row_title = "%s",
     row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
@@ -308,6 +308,11 @@ TPEX_de %>% filter(.abundant) %>%
   arrange(desc(logFC)) %>% 
   write_csv(file.path(saveDir, "TPEX_de.csv"))
 
+TPEX_DESeq2 %>% filter(.abundant) %>%
+  filter(padj < 0.05) %>%
+  arrange(desc(stat)) %>%
+  write_csv(file.path(saveDir, "TPEX_DESeq2.csv"))
+
 # DESeq2
 TEFF_DESeq2 <- TEFF %>%
   test_differential_abundance(
@@ -343,8 +348,14 @@ TEFF_de %>% filter(.abundant) %>%
   arrange(desc(logFC)) %>% 
   write_csv(file.path(saveDir, "TEFF_de.csv"))
 
+TEFF_DESeq2 %>% filter(.abundant) %>%
+  filter(padj < 0.05) %>%
+  arrange(desc(stat)) %>%
+  write_csv(file.path(saveDir, "TEFF_DESeq2.csv"))
+
 unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
 unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
+
 
 topgenes <-
   counts_de %>%
