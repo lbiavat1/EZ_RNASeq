@@ -15,11 +15,9 @@ library(DESeq2)
 library(limma)
 library(edgeR)
 library(fgsea)
-# library(hciR)
 library(IHW)
 
 
-library(biomaRt)
 library(annotables)
 
 # Set PrimaryDirectory where this script is located
@@ -70,19 +68,22 @@ for(i in 2:nfiles){
 
 all.equal(mtb, myTibble)
 
-names(myTibble)[1] <- "feature"
-myTibble
+mtb
+
+names(mtb)[1] <- "feature"
+
 grcm38
 grcm38_tx2gene
 
-pivot_longer(myTibble, cols = c(2:18),
+pivot_longer(mtb, cols = c(2:18),
              names_to = "sample", values_to = "counts")
-counts_tt <- pivot_longer(myTibble, cols = c(2:18),
+counts_tt <- pivot_longer(mtb, cols = c(2:18),
                           names_to = "sample", values_to = "counts") %>%
   dplyr::inner_join(grcm38, by = c("feature" = "ensgene")) %>%
-  dplyr::select(symbol, sample, counts)
+  dplyr::select(symbol, sample, counts) %>%
+  dplyr::rename(., feature = symbol)
 counts_tt
-names(counts_tt)[1] <- "feature"
+
   
 "Tcf7" %in% counts_tt$feature
 "Gzmb" %in% counts_tt$feature
@@ -105,6 +106,7 @@ counts_tt
 myInfo <- read_csv("experiment_info.csv")
 myInfo <- myInfo %>%
   mutate(mouse = gsub("#", "", mouse))
+myInfo
 
 counts_tt <- counts_tt %>% left_join(myInfo)
 counts_tt
@@ -152,14 +154,233 @@ ggplot(counts_scaled, mapping = aes(x = sample, weight = counts, fill = sample))
   theme(axis.text.x = element_blank())
 # ggsave(file.path(plotDir, "count_reads_per_sample.pdf"), device = "pdf")
 
+################ subset dataset for cell.type - tissue comparison #############
+
+TPEX <- counts_scaled %>% 
+  dplyr::filter(cell.type == "TPEX") %>%
+  dplyr::filter(timepoint == "late")
+TPEX
+
+TEFF <- counts_scaled %>%
+  dplyr::filter(cell.type != "TPEX") %>%
+  dplyr:: filter(timepoint == "late")
+TEFF
+
+################## PCA ###################################
+TPEX_PCA <- TPEX %>%
+  reduce_dimensions(method = "PCA", top = 500)
+attr(TPEX_PCA, "internals")$PCA
+
+TPEX_PCA %>%
+  # mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
+  pivot_sample() %>%
+  ggplot(aes(x = PC1, y = PC2, colour = tissue)) +
+  geom_point(size = 4) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  # stat_ellipse(type = "norm", level = 0.7) +
+  theme_bw()
+ggsave(file.path(plotDir, "PCA_top500_TPEX.pdf"), device = "pdf")
+
+TEFF_PCA <- TEFF %>%
+  reduce_dimensions(method = "PCA", top = 500)
+attr(TPEX_PCA, "internals")$PCA
+
+TEFF_PCA %>%
+  # mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
+  pivot_sample() %>%
+  ggplot(aes(x = PC1, y = PC2, colour = tissue)) +
+  geom_point(size = 4) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  # stat_ellipse(type = "norm", level = 0.7) +
+  theme_bw()
+ggsave(file.path(plotDir, "PCA_top500_TEFF.pdf"), device = "pdf")
+
+###################### heatmap ################################################
+
+hm <- TPEX %>%
+  
+  # filter lowly abundant
+  filter(.abundant) %>%
+  
+  # extract most variable genes
+  keep_variable( .abundance = counts_scaled, top = 500) %>%
+  
+  as_tibble() %>%
+  
+  mutate(genes = feature) %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = genes,
+    .value = counts_scaled,
+    # row_names_gp = gpar(fontsize = 4),
+    transform = log1p,
+    palette_value = c("blue", "white", "red"),
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    column_km = 2,
+    column_km_repeats = 100,
+    row_km = 2,
+    row_km_repeats = 500,
+    row_title = "%s",
+    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
+                                       "#33A02C", "#FB9A99"), 
+                              font = c(1,2,3))
+  ) %>%
+  add_tile(c(tissue))
+hm
+pdf(file = file.path(plotDir, "heatmap_top500_TPEX-late.pdf"))
+hm
+dev.off()
+
+hm <- TEFF %>%
+  
+  # filter lowly abundant
+  filter(.abundant) %>%
+  
+  # extract most variable genes
+  keep_variable( .abundance = counts_scaled, top = 500) %>%
+  
+  as_tibble() %>%
+  
+  mutate(genes = feature) %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = genes,
+    .value = counts_scaled,
+    # row_names_gp = gpar(fontsize = 4),
+    transform = log1p,
+    palette_value = c("blue", "white", "red"),
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    column_km = 2,
+    column_km_repeats = 100,
+    row_km = 2,
+    row_km_repeats = 500,
+    row_title = "%s",
+    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
+                                       "#33A02C", "#FB9A99"), 
+                              font = c(1,2,3))
+  ) %>%
+  add_tile(c(tissue))
+hm
+pdf(file = file.path(plotDir, "heatmap_top500_TEFF-late.pdf"))
+hm
+dev.off()
+
+
+######################### DEG testing ########################################
+# DESeq2
+TPEX_DESeq2 <- TPEX %>%
+  test_differential_abundance(
+    .formula = ~ 0 + tissue + mouse,
+    .contrasts = list(c("tissue", "BM", "TUM")),
+    method = "DESeq2",
+    omit_contrast_in_colnames = TRUE
+  )
+
+# edgeR
+TPEX_de <- TPEX %>%
+  test_differential_abundance(
+    .formula = ~ 0 + tissue + mouse,
+    .contrasts = c("tissueBM - tissueTUM"),
+    method = "edgeR_quasi_likelihood",
+    omit_contrast_in_colnames = TRUE
+  )
+
+
+deseq2 <- TPEX_DESeq2 %>% pivot_transcript(.transcript = feature) %>% 
+  filter(.abundant) %>% filter(padj < 0.05) %>% pull(feature)
+length(deseq2)
+
+edgeR <- TPEX_de %>% pivot_transcript(.transcript = feature) %>% 
+  filter(.abundant) %>% filter(FDR < 0.05) %>% pull(feature)
+length(edgeR)
+
+sum(deseq2 %in% edgeR)/length(deseq2)
+sum(edgeR %in% deseq2)/length(edgeR)
+
+TPEX_de %>% filter(.abundant) %>% 
+  filter(FDR < 0.05) %>% 
+  arrange(desc(logFC)) %>% 
+  write_csv(file.path(saveDir, "TPEX_de.csv"))
+
+# DESeq2
+TEFF_DESeq2 <- TEFF %>%
+  test_differential_abundance(
+    .formula = ~ 0 + tissue + mouse,
+    .contrasts = list(c("tissue", "BM", "TUM")),
+    method = "DESeq2",
+    omit_contrast_in_colnames = TRUE
+  )
+
+# edgeR
+TEFF_de <- TEFF %>%
+  test_differential_abundance(
+    .formula = ~ 0 + tissue + mouse,
+    .contrasts = c("tissueBM - tissueTUM"),
+    method = "edgeR_quasi_likelihood",
+    omit_contrast_in_colnames = TRUE
+  )
+
+
+deseq2 <- TEFF_DESeq2 %>% pivot_transcript(.transcript = feature) %>% 
+  filter(.abundant) %>% filter(padj < 0.05) %>% pull(feature)
+length(deseq2)
+
+edgeR <- TEFF_de %>% pivot_transcript(.transcript = feature) %>% 
+  filter(.abundant) %>% filter(FDR < 0.05) %>% pull(feature)
+length(edgeR)
+
+sum(deseq2 %in% edgeR)/length(deseq2)
+sum(edgeR %in% deseq2)/length(edgeR)
+
+TEFF_de %>% filter(.abundant) %>% 
+  filter(FDR < 0.05) %>% 
+  arrange(desc(logFC)) %>% 
+  write_csv(file.path(saveDir, "TEFF_de.csv"))
+
+unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
+unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
+
+topgenes <-
+  counts_de %>%
+  pivot_transcript() %>%
+  arrange(FDR) %>%
+  head(50)
+
+topgenes_symbols <- topgenes %>% pull(feature)
+
+counts_de %>% filter(feature == "") %>% dplyr::select(feature, FDR, logFC)
+
+volcano <- counts_de %>%
+  pivot_transcript() %>%
+  
+  # Subset data
+  filter(.abundant) %>%
+  mutate(significant = FDR < 0.01 & abs(logFC) >= 2) %>%
+  mutate(feature = ifelse(feature %in% topgenes_symbols, as.character(feature), "")) %>%
+  
+  # Plot
+  ggplot(aes(x = logFC, y = PValue, label = feature)) +
+  geom_point(aes(color = significant, size = significant, alpha = significant)) +
+  geom_text_repel() +
+  
+  # Custom scales
+  scale_y_continuous(trans = "log10_reverse") +
+  scale_color_manual(values = c("black", "#e11f28")) +
+  scale_size_discrete(range = c(0, 2)) +
+  theme_bw()
+volcano
+
+
 counts_scal_PCA <-
   counts_scaled %>%
   reduce_dimensions(method = "PCA", top = 500)
-counts_scal_PCA <-
-  counts_scaled %>%
-  dplyr::filter(timepoint == "late") %>%
-  dplyr::filter(cell.type == "TPEX") %>%
-  reduce_dimensions(method = "PCA", top = 100)
+
 attr(counts_scal_PCA, "internals")$PCA
 
 counts_scal_PCA %>%
