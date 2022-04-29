@@ -356,18 +356,23 @@ TEFF_DESeq2 %>% filter(.abundant) %>%
 unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
 unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
 
+######################## volcano plots ########################################
 
 topgenes <-
-  counts_de %>%
+  TPEX_de %>%
   pivot_transcript() %>%
-  arrange(FDR) %>%
-  head(50)
+  dplyr::filter(FDR < 0.05) %>% 
+  arrange(desc(logFC)) %>%
+  head(100)
+as.data.frame(topgenes %>% select(feature, logFC, FDR))
 
 topgenes_symbols <- topgenes %>% pull(feature)
+topgenes_symbols <- c("Lag3", "Pdcd1", "Rgs16",
+                      "Sell", "Lef1", "S1pr1")
 
-counts_de %>% filter(feature == "") %>% dplyr::select(feature, FDR, logFC)
+TPEX_de %>% filter(feature == c("Klrb1c", "Fcer1g")) %>% dplyr::select(feature, FDR, logFC)
 
-volcano <- counts_de %>%
+volcano <- TPEX_de %>%
   pivot_transcript() %>%
   
   # Subset data
@@ -378,7 +383,8 @@ volcano <- counts_de %>%
   # Plot
   ggplot(aes(x = logFC, y = PValue, label = feature)) +
   geom_point(aes(color = significant, size = significant, alpha = significant)) +
-  geom_text_repel() +
+  # geom_text_repel() +
+  geom_label_repel(max.overlaps = getOption("ggrepel.max.overlaps", default = 20)) +
   
   # Custom scales
   scale_y_continuous(trans = "log10_reverse") +
@@ -386,6 +392,42 @@ volcano <- counts_de %>%
   scale_size_discrete(range = c(0, 2)) +
   theme_bw()
 volcano
+ggsave(filename = file.path(plotDir, "Volcano_TPEX.pdf"))
+
+topgenes <-
+  TEFF_de %>%
+  pivot_transcript() %>%
+  dplyr::filter(FDR < 0.05) %>% 
+  arrange(desc(logFC)) %>%
+  head(100)
+as.data.frame(topgenes %>% select(feature, logFC, FDR))
+
+TEFF_de %>% filter(feature == c("Klrb1c", "Havcr2")) %>% dplyr::select(feature, FDR, logFC)
+
+topgenes_symbols <- c("Lag3", "Pdcd1", "Havcr2", "Gzma", "S1pr5", "Lef1")
+
+
+volcano <- TEFF_de %>%
+  pivot_transcript() %>%
+  
+  # Subset data
+  filter(.abundant) %>%
+  mutate(significant = FDR < 0.01 & abs(logFC) >= 2) %>%
+  mutate(feature = ifelse(feature %in% topgenes_symbols, as.character(feature), "")) %>%
+  
+  # Plot
+  ggplot(aes(x = logFC, y = PValue, label = feature)) +
+  geom_point(aes(color = significant, size = significant, alpha = significant)) +
+  # geom_text_repel() +
+  geom_label_repel(max.overlaps = getOption("ggrepel.max.overlaps", default = 20)) +
+  
+  # Custom scales
+  scale_y_continuous(trans = "log10_reverse") +
+  scale_color_manual(values = c("black", "#e11f28")) +
+  scale_size_discrete(range = c(0, 2)) +
+  theme_bw()
+volcano
+ggsave(filename = file.path(plotDir, "Volcano_TEFF.pdf"))
 
 
 counts_scal_PCA <-
