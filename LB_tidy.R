@@ -381,6 +381,9 @@ teff_sig <- TEFF_de %>% filter(.abundant) %>%
   select(feature, logFC) %>%
   distinct()
 
+teff_sig %>%
+  write_csv(file.path(saveDir, "TEFF_BM_signature.csv"))
+
 BM_sig <- inner_join(tpex_sig, teff_sig, by = c("feature" = "feature"))
 grep("Klrb1c", BM_sig$feature)
 grep("Cd7", BM_sig$feature)
