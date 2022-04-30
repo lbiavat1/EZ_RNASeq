@@ -311,11 +311,11 @@ TPEX_de %>% filter(.abundant) %>%
   write_csv(file.path(saveDir, "TPEX_de.csv"))
 
 TPEX_de %>% filter(.abundant) %>%
-  filter(FDR < 0.05) %>%
-  filter(logFC > 0) %>%
+  filter(FDR < 0.02) %>%
+  filter(logFC > 2) %>%
   arrange(desc(logFC)) %>%
-  select(feature) %>%
-  distinct(feature) %>%
+  select(feature, logFC) %>%
+  distinct() %>%
   write_csv(file.path(saveDir, "TPEX_BM_signature.csv"))
 
 TPEX_DESeq2 %>% filter(.abundant) %>%
@@ -366,6 +366,25 @@ TEFF_DESeq2 %>% filter(.abundant) %>%
 unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
 unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
 
+################# BM signature #################################################
+tpex_sig <- TPEX_de %>% filter(.abundant) %>%
+  filter(FDR < 0.02) %>%
+  filter(logFC > 2) %>%
+  arrange(desc(logFC)) %>%
+  select(feature, logFC) %>%
+  distinct()
+
+teff_sig <- TEFF_de %>% filter(.abundant) %>%
+  filter(FDR < 0.02) %>%
+  filter(logFC > 2) %>%
+  arrange(desc(logFC)) %>%
+  select(feature, logFC) %>%
+  distinct()
+
+BM_sig <- inner_join(tpex_sig, teff_sig, by = c("feature" = "feature"))
+grep("Klrb1c", BM_sig$feature)
+grep("Cd7", BM_sig$feature)
+BM_sig %>% write_csv(file = file.path(saveDir, "BM_sig.csv"))
 ######################## volcano plots ########################################
 
 topgenes <-
