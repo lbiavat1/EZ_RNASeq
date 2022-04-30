@@ -65,8 +65,10 @@ for(i in 2:nfiles){
                         read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
                                            files[i])))
 }
-
 all.equal(mtb, myTibble)
+if(all.equal(mtb, myTibble)){
+  rm(myTibble)
+}
 
 mtb
 
@@ -179,7 +181,7 @@ TPEX_PCA %>%
   geom_text_repel(aes(label = ""), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
-ggsave(file.path(plotDir, "PCA_top500_TPEX.pdf"), device = "pdf")
+# ggsave(file.path(plotDir, "PCA_top500_TPEX.pdf"), device = "pdf")
 
 TEFF_PCA <- TEFF %>%
   reduce_dimensions(method = "PCA", top = 500)
@@ -193,22 +195,22 @@ TEFF_PCA %>%
   geom_text_repel(aes(label = ""), show.legend = FALSE) +
   # stat_ellipse(type = "norm", level = 0.7) +
   theme_bw()
-ggsave(file.path(plotDir, "PCA_top500_TEFF.pdf"), device = "pdf")
+# ggsave(file.path(plotDir, "PCA_top500_TEFF.pdf"), device = "pdf")
 
 ###################### heatmap ################################################
 
 hm <- TPEX %>%
-  
+
   # filter lowly abundant
   filter(.abundant) %>%
-  
+
   # extract most variable genes
   keep_variable( .abundance = counts_scaled, top = 500) %>%
-  
+
   as_tibble() %>%
-  
+
   mutate(genes = feature) %>%
-  
+
   # create heatmap
   heatmap(
     .column = sample,
@@ -225,14 +227,14 @@ hm <- TPEX %>%
     row_km_repeats = 500,
     row_title = "%s",
     row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
-                                       "#33A02C", "#FB9A99"), 
+                                       "#33A02C", "#FB9A99"),
                               font = c(1,2,3))
   ) %>%
   add_tile(c(tissue))
 hm
-pdf(file = file.path(plotDir, "heatmap_top500_TPEX-late.pdf"))
-hm
-dev.off()
+# pdf(file = file.path(plotDir, "heatmap_top500_TPEX-late.pdf"))
+# hm
+# dev.off()
 
 hm <- TEFF %>%
   
@@ -267,9 +269,9 @@ hm <- TEFF %>%
   ) %>%
   add_tile(c(tissue))
 hm
-pdf(file = file.path(plotDir, "heatmap_top500_TEFF-late.pdf"))
-hm
-dev.off()
+# pdf(file = file.path(plotDir, "heatmap_top500_TEFF-late.pdf"))
+# hm
+# dev.off()
 
 
 ######################### DEG testing ########################################
@@ -307,6 +309,14 @@ TPEX_de %>% filter(.abundant) %>%
   filter(FDR < 0.05) %>% 
   arrange(desc(logFC)) %>% 
   write_csv(file.path(saveDir, "TPEX_de.csv"))
+
+TPEX_de %>% filter(.abundant) %>%
+  filter(FDR < 0.05) %>%
+  filter(logFC > 0) %>%
+  arrange(desc(logFC)) %>%
+  select(feature) %>%
+  distinct(feature) %>%
+  write_csv(file.path(saveDir, "TPEX_BM_signature.csv"))
 
 TPEX_DESeq2 %>% filter(.abundant) %>%
   filter(padj < 0.05) %>%
