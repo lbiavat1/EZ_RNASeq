@@ -331,8 +331,8 @@ TPEX_DESeq2 %>% filter(.abundant) %>%
 topgenes_symbols <- c("Havcr2", "Entpd1", "Klrb1c", "Fcer1g", "Sell",
                       "Lef1", "Gzmb", "Cd7", "Id3", "Slamf6", "Cx3cr1", "Id2")
 topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
-                      "Cx3cr1", "Tcf7", "Cxcr4", "Gzmb", "Klrb1c", "S1pr5",
-                      "S1pr1", "Gzma")
+                      "Cx3cr1", "Tcf7", "Tbx21", "Tox", "Klrb1c", "S1pr5",
+                      "S1pr1", "Myb", "Cd101", "Zfp683")
 
 strip_chart <-
   counts_scaled %>%
@@ -349,11 +349,12 @@ strip_chart <-
   geom_boxplot() +
   geom_jitter() +
   facet_wrap(~ feature) +
-  scale_y_log10() +
+  scale_y_continuous(trans = "log2") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 strip_chart
 
+grcm38[grep("Def", grcm38$symbol),] %>% select(ensgene, symbol) %>% as.data.frame()
 
 # DESeq2
 TEFF_DESeq2 <- TEFF %>%
