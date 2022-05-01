@@ -8,6 +8,7 @@ library(tidyHeatmap)
 library(ComplexHeatmap)
 library(ggrepel)
 library(plotly)
+library(gg3D)
 library(GGally)
 
 # other useful libraries
@@ -236,7 +237,11 @@ hm
 # hm
 # dev.off()
 
+TEFF
+
 hm <- TEFF %>%
+  
+  filter(cell.type == "TEFF") %>%
   
   # filter lowly abundant
   filter(.abundant) %>%
@@ -260,7 +265,7 @@ hm <- TEFF %>%
     show_row_names = TRUE,
     column_km = 2,
     column_km_repeats = 100,
-    row_km = 3,
+    row_km = 4,
     row_km_repeats = 500,
     row_title = "%s",
     row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
@@ -322,6 +327,33 @@ TPEX_DESeq2 %>% filter(.abundant) %>%
   filter(padj < 0.05) %>%
   arrange(desc(stat)) %>%
   write_csv(file.path(saveDir, "TPEX_DESeq2.csv"))
+#################### Strip chart graph #######################################
+topgenes_symbols <- c("Havcr2", "Entpd1", "Klrb1c", "Fcer1g", "Sell",
+                      "Lef1", "Gzmb", "Cd7", "Id3", "Slamf6", "Cx3cr1", "Id2")
+topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
+                      "Cx3cr1", "Tcf7", "Cxcr4", "Gzmb", "Klrb1c", "S1pr5",
+                      "S1pr1", "Gzma")
+
+strip_chart <-
+  counts_scaled %>%
+  
+  dplyr::filter(timepoint == "late") %>%
+  
+  mutate(tis_cel = paste0(cell.type, "_", tissue)) %>%
+  
+  # extract counts for top differentially expressed genes
+  filter(feature %in% topgenes_symbols) %>%
+  
+  # make stripchart
+  ggplot(aes(x = tis_cel, y = counts_scaled + 1, fill = tis_cel, label = "")) +
+  geom_boxplot() +
+  geom_jitter() +
+  facet_wrap(~ feature) +
+  scale_y_log10() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+strip_chart
+
 
 # DESeq2
 TEFF_DESeq2 <- TEFF %>%
@@ -464,19 +496,25 @@ ggsave(filename = file.path(plotDir, "Volcano_TEFF.pdf"))
 
 counts_scal_PCA <-
   counts_scaled %>%
-  reduce_dimensions(method = "PCA", top = 500)
+  reduce_dimensions(method = "PCA", top = 500, .dims = 3)
 
 attr(counts_scal_PCA, "internals")$PCA
 
 counts_scal_PCA %>%
   mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
   pivot_sample() %>%
-  ggplot(aes(x = PC1, y = PC2, colour = cell.type, shape = tissue)) +
+  ggplot(aes(x = PC1, y = PC2, z = PC3, colour = cell.type, shape = tissue)) +
+  theme_void() +
+  axes_3D() +
+  stat_3D() +
   geom_point(size = 4) +
-  geom_text_repel(aes(label = ""), show.legend = FALSE) +
-  # stat_ellipse(type = "norm", level = 0.7) +
-  theme_bw()
+  geom_text_repel(aes(label = timepoint), show.legend = FALSE)
+  # stat_ellipse(type = "norm", level = 0.7)
 # ggsave(file.path(plotDir, "PCA_top100_late_noLables.pdf"), device = "pdf")
+
+counts_scal_PCA %>%
+  mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
+  plot_ly(x = .$PC1, y =.$ PC2, z = .$PC3, type = "scatter3d", mode = "markers", color = .$tis_cel)
 
 counts_scaled <- counts_scaled %>%
   dplyr::filter(timepoint == "late") %>%
@@ -603,6 +641,7 @@ dev.off()
 
 # DESeq2
 counts_de_DESeq2 <- counts_scaled %>%
+  dplyr::filter(timepoint == "late") %>%
   test_differential_abundance(
     .formula = ~ 0 + tissue + mouse,
     .contrasts = list(c("tissue", "BM", "TUM")),
@@ -612,6 +651,7 @@ counts_de_DESeq2 <- counts_scaled %>%
 
 # edgeR
 counts_de <- counts_scaled %>%
+  dplyr::filter(timepoint == "late") %>%
   test_differential_abundance(
     .formula = ~ 0 + tissue + mouse,
     .contrasts = c("tissueBM - tissueTUM"),
@@ -630,6 +670,13 @@ length(edgeR)
 
 sum(deseq2 %in% edgeR)/length(deseq2)
 sum(edgeR %in% deseq2)/length(edgeR)
+
+counts_de %>% filter(.abundant) %>% 
+  filter(FDR < 0.05) %>% 
+  arrange(desc(logFC)) %>%
+  dplyr::select(feature, logFC, FDR) %>%
+  distinct() %>%
+  write_csv(file.path(saveDir, "BMvsTUM_de.csv"))
 
 topgenes <-
   counts_de %>%
@@ -660,3 +707,5 @@ volcano <- counts_de %>%
   scale_size_discrete(range = c(0, 2)) +
   theme_bw()
 volcano
+
+
