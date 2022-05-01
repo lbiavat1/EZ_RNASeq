@@ -48,36 +48,43 @@ raw_cts <- file.path(PrimaryDirectory, "RNASeq_rawcounts")
 files <- list.files(raw_cts)
 
 path.to.files <- file.path(PrimaryDirectory, "RNASeq_rawcounts", files)
-list.of.tibbles <- map(path.to.files, read_csv)
-myTibble <- list.of.tibbles %>% purrr::reduce(., inner_join)
 
+# # use purrr::reduce() to inner_join() tibbles
+# list.of.tibbles <- map(path.to.files, read_csv)
+# myTibble <- list.of.tibbles %>% purrr::reduce(., inner_join)
+
+# oneline command using map fxn
 mtb <- map(file.path(PrimaryDirectory, "RNASeq_rawcounts", files), read_csv) %>% 
   purrr::reduce(., inner_join)
 mtb
 
-nfiles <- length(list.files(raw_cts))
-
-t <- read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
-                        files[1]))
-
-myTibble <- t
-for(i in 2:nfiles){
-  myTibble <- inner_join(myTibble, 
-                        read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
-                                           files[i])))
-}
-all.equal(mtb, myTibble)
-if(all.equal(mtb, myTibble)){
-  rm(myTibble)
-}
+# # long version
+# nfiles <- length(list.files(raw_cts))
+# 
+# t <- read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
+#                         files[1]))
+# 
+# myTibble <- t
+# for(i in 2:nfiles){
+#   myTibble <- inner_join(myTibble, 
+#                         read_csv(file.path(PrimaryDirectory, "RNASeq_rawcounts",
+#                                            files[i])))
+# }
+# all.equal(mtb, myTibble)
+# if(all.equal(mtb, myTibble)){
+#   rm(myTibble)
+# }
 
 mtb
 
+
 names(mtb)[1] <- "feature"
 
+# load tibble w/ gene symbol/ensgene/entrez conversion table
 grcm38
 grcm38_tx2gene
 
+# pivot_longer -> make it tidy!!
 counts_tt <- pivot_longer(mtb, cols = c(2:18),
                           names_to = "sample", values_to = "counts") %>%
   dplyr::inner_join(grcm38, by = c("feature" = "ensgene")) %>%
@@ -85,7 +92,7 @@ counts_tt <- pivot_longer(mtb, cols = c(2:18),
   dplyr::rename(., feature = symbol)
 counts_tt
 
-  
+# check successful conversion of common genes
 "Tcf7" %in% counts_tt$feature
 "Gzmb" %in% counts_tt$feature
 "Elane" %in% counts_tt$feature
@@ -104,25 +111,30 @@ counts_tt
 #   mutate(mouse = paste("#", mouse, sep = ""))
 # write_csv(myInfo, "experiment_info.csv")
 
+# load metadata 
 myInfo <- read_csv("experiment_info.csv")
 myInfo <- myInfo %>%
   mutate(mouse = gsub("#", "", mouse))
 myInfo
 
+# add metadata to tibble 
 counts_tt <- counts_tt %>% left_join(myInfo)
 counts_tt
+# prep for tidibulk, aggregate gene duplicates 
 counts <- counts_tt %>%
   tidybulk(.sample = sample, .transcript = feature, .abundance = counts) %>%
   aggregate_duplicates()
 counts
 counts
+# plot counts for fun 
 ggplot(counts_tt, aes(x = sample, weight = counts, fill = sampleName)) +
   geom_bar() +
-  theme_bw()
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
-counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
-  dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName)
+# counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
+#   dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName)
 
+# remove duplicates, prep tibble, identify abundant and scale
 counts_scaled <- counts %>% distinct(paste(feature, sample, sep = "_"), .keep_all = TRUE) %>%
   dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName) %>%
   identify_abundant(factor_of_interest = sampleName, minimum_counts = 100, minimum_proportion = 0.50) %>%
@@ -136,6 +148,7 @@ counts_scaled %>%
   facet_wrap(~source) +
   scale_x_log10() +
   theme_bw()
+  
 # ggsave(file.path(plotDir, "counts_scaled.pdf"), device = "pdf")
 
 counts_scaled %>%
@@ -146,9 +159,10 @@ counts_scaled %>%
   geom_hline(aes(yintercept = median(abundance + 1)), colour="red") +
   facet_wrap(~source) +
   scale_y_log10() +
-  theme_bw()
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 # ggsave(file.path(plotDir, "counts_scaled_boxplot.pdf"), device = "pdf")
 
+# table scaled counts
 counts_scaled %>% group_by(sample) %>%
   summarise(total_reads=sum(counts))
 
@@ -157,15 +171,16 @@ ggplot(counts_scaled, mapping = aes(x = sample, weight = counts, fill = sample))
   theme(axis.text.x = element_blank())
 # ggsave(file.path(plotDir, "count_reads_per_sample.pdf"), device = "pdf")
 
-################ subset dataset for cell.type - tissue comparison #############
+################ subset dataset for cell.type - tissue comparison (late timepoint) #############
 
 TPEX <- counts_scaled %>% 
   dplyr::filter(cell.type == "TPEX") %>%
   dplyr::filter(timepoint == "late")
 TPEX
 
+# note: exclude TTERM
 TEFF <- counts_scaled %>%
-  dplyr::filter(cell.type != "TPEX") %>%
+  dplyr::filter(cell.type == "TEFF") %>%
   dplyr:: filter(timepoint == "late")
 TEFF
 
@@ -312,7 +327,9 @@ sum(edgeR %in% deseq2)/length(edgeR)
 
 TPEX_de %>% filter(.abundant) %>% 
   filter(FDR < 0.05) %>% 
-  arrange(desc(logFC)) %>% 
+  arrange(desc(logFC)) %>%
+  select(feature, logFC) %>%
+  distinct() %>%
   write_csv(file.path(saveDir, "TPEX_de.csv"))
 
 TPEX_de %>% filter(.abundant) %>%
@@ -326,20 +343,23 @@ TPEX_de %>% filter(.abundant) %>%
 TPEX_DESeq2 %>% filter(.abundant) %>%
   filter(padj < 0.05) %>%
   arrange(desc(stat)) %>%
+  select(feature, log2FoldChange:padj) %>%
+  distinct() %>%
   write_csv(file.path(saveDir, "TPEX_DESeq2.csv"))
 #################### Strip chart graph #######################################
 topgenes_symbols <- c("Havcr2", "Entpd1", "Klrb1c", "Fcer1g", "Sell",
                       "Lef1", "Gzmb", "Cd7", "Id3", "Slamf6", "Cx3cr1", "Id2")
 topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
                       "Cx3cr1", "Tcf7", "Tbx21", "Tox", "Klrb1c", "S1pr5",
-                      "S1pr1", "Myb", "Cd101", "Zfp683")
+                      "S1pr1", "Myb", "Cd101", "Zfp683", "Cd69", "Bach2")
 
 strip_chart <-
   counts_scaled %>%
   
   dplyr::filter(timepoint == "late") %>%
+  # dplyr::filter(tissue == "BM") %>%
   
-  mutate(tis_cel = paste0(cell.type, "_", tissue)) %>%
+  mutate(tis_cel = as.factor(paste0(timepoint, "_", tissue, "_", cell.type))) %>%
   
   # extract counts for top differentially expressed genes
   filter(feature %in% topgenes_symbols) %>%
@@ -349,12 +369,12 @@ strip_chart <-
   geom_boxplot() +
   geom_jitter() +
   facet_wrap(~ feature) +
-  scale_y_continuous(trans = "log2") +
+  scale_y_continuous(trans = "log10") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 strip_chart
 
-grcm38[grep("Def", grcm38$symbol),] %>% select(ensgene, symbol) %>% as.data.frame()
+ grcm38[grep("Def", grcm38$symbol),] %>% select(ensgene, symbol) %>% as.data.frame()
 
 # DESeq2
 TEFF_DESeq2 <- TEFF %>%
