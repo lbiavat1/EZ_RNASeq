@@ -495,7 +495,7 @@ unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
 unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
 
 #################### Strip chart graph - Genes of interest #####################
-topgenes_symbols <- c("Mpo", "Elane", "Cd177")
+topgenes_symbols <- c("Mpo", "Elane", "Cd177", "Klrb1c", "Fcer1g", "Cd7", "Gzmb")
 topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
                       "Cx3cr1", "Tcf7", "Tbx21", "Tox", "Klrb1c", "S1pr5",
                       "S1pr1", "Myb", "Cd101", "Zfp683", "Cd69", "Bach2")
@@ -506,6 +506,8 @@ topgenes_symbols <- c("Slamf6", "Cx3cr1", "Havcr2",
 topgenes_symbols <- c("Tcf7", "Lef1", "Id3", "Bach2",
                       "Tbx21", "Tox", "Myb", "Eomes",
                       "Prdm1")
+
+topgenes_symbols <- c("Id3")
 
 strip_chart <-
   counts_scaled %>%
@@ -523,7 +525,7 @@ strip_chart <-
   geom_boxplot() +
   geom_jitter() +
   facet_wrap(~ feature) +
-  scale_y_continuous(trans = "log2") +
+  # scale_y_continuous(trans = "log10") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 strip_chart
