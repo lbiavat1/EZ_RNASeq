@@ -171,7 +171,7 @@ ggplot(counts_scaled, mapping = aes(x = sample, weight = counts, fill = sample))
   theme(axis.text.x = element_blank())
 # ggsave(file.path(plotDir, "count_reads_per_sample.pdf"), device = "pdf")
 
-################ subset dataset for cell.type - tissue comparison (late timepoint) #############
+################ subset dataset for cell.type - tissue comparison #############
 
 TPEX <- counts_scaled %>% 
   dplyr::filter(cell.type == "TPEX") %>%
@@ -183,6 +183,10 @@ TEFF <- counts_scaled %>%
   dplyr::filter(cell.type == "TEFF") %>%
   dplyr:: filter(timepoint == "late")
 TEFF
+
+BM <- counts_scaled %>%
+  dplyr::filter(tissue == "BM")
+BM
 
 ################## PCA ###################################
 TPEX_PCA <- TPEX %>%
@@ -213,6 +217,15 @@ TEFF_PCA %>%
   theme_bw()
 # ggsave(file.path(plotDir, "PCA_top500_TEFF.pdf"), device = "pdf")
 
+BM_PCA <- BM %>%
+  reduce_dimensions(method = "PCA", top = 500, .dims = 2)
+BM_PCA %>%
+  pivot_sample() %>%
+  ggplot(aes(x = PC1, y = PC2, colour = sampleName)) +
+  geom_point(size = 4) +
+  geom_text_repel(aes(label = ""), show.legend = FALSE) +
+  theme_bw()
+# ggsave(file.path(plotDir, "PCA_top500_BMsubsets.pdf"))
 ###################### heatmap ################################################
 
 hm <- TPEX %>%
@@ -293,6 +306,42 @@ hm
 # hm
 # dev.off()
 
+hm <- BM %>%
+  
+  # filter lowly abundant
+  filter(.abundant) %>%
+  
+  # extract most variable genes
+  keep_variable( .abundance = counts_scaled, top = 100) %>%
+  
+  as_tibble() %>%
+  
+  mutate(genes = feature) %>%
+  
+  # create heatmap
+  heatmap(
+    .column = sample,
+    .row = genes,
+    .value = counts_scaled,
+    # row_names_gp = gpar(fontsize = 4),
+    transform = log1p,
+    palette_value = c("blue", "white", "red"),
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    column_km = 3,
+    column_km_repeats = 100,
+    row_km = 3,
+    row_km_repeats = 500,
+    row_title = "%s",
+    row_title_gp = grid::gpar(fill = c("#A6CEE3", "#1F78B4", "#B2DF8A",
+                                       "#33A02C", "#FB9A99"),
+                              font = c(1,2,3))
+  ) %>%
+  add_tile(c(timepoint, cell.type))
+hm
+# pdf(file = file.path(plotDir, "heatmap_top100_BMsubsets.pdf"))
+# hm
+# dev.off()
 
 ######################### DEG testing ########################################
 # DESeq2
@@ -346,35 +395,6 @@ TPEX_DESeq2 %>% filter(.abundant) %>%
   select(feature, log2FoldChange:padj) %>%
   distinct() %>%
   write_csv(file.path(saveDir, "TPEX_DESeq2.csv"))
-#################### Strip chart graph #######################################
-topgenes_symbols <- c("Havcr2", "Entpd1", "Klrb1c", "Fcer1g", "Sell",
-                      "Lef1", "Gzmb", "Cd7", "Id3", "Slamf6", "Cx3cr1", "Id2")
-topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
-                      "Cx3cr1", "Tcf7", "Tbx21", "Tox", "Klrb1c", "S1pr5",
-                      "S1pr1", "Myb", "Cd101", "Zfp683", "Cd69", "Bach2")
-
-strip_chart <-
-  counts_scaled %>%
-  
-  dplyr::filter(timepoint == "late") %>%
-  # dplyr::filter(tissue == "BM") %>%
-  
-  mutate(tis_cel = as.factor(paste0(timepoint, "_", tissue, "_", cell.type))) %>%
-  
-  # extract counts for top differentially expressed genes
-  filter(feature %in% topgenes_symbols) %>%
-  
-  # make stripchart
-  ggplot(aes(x = tis_cel, y = counts_scaled + 1, fill = tis_cel, label = "")) +
-  geom_boxplot() +
-  geom_jitter() +
-  facet_wrap(~ feature) +
-  scale_y_continuous(trans = "log10") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-
-strip_chart
-
- grcm38[grep("Def", grcm38$symbol),] %>% select(ensgene, symbol) %>% as.data.frame()
 
 # DESeq2
 TEFF_DESeq2 <- TEFF %>%
@@ -418,6 +438,41 @@ TEFF_DESeq2 %>% filter(.abundant) %>%
 
 unique(TEFF_de$feature) %in% unique(TPEX_de$feature)
 unique(TPEX_de$feature)[unique(TEFF_de$feature) %in% unique(TPEX_de$feature)]
+
+#################### Strip chart graph - Genes of interest #####################
+topgenes_symbols <- c("Havcr2", "Entpd1", "Klrb1c", "Fcer1g", "Sell",
+                      "Lef1", "Gzmb", "Cd7", "Id3", "Slamf6", "Cx3cr1", "Id2")
+topgenes_symbols <- c("Havcr2", "Entpd1", "Sell", "Slamf6",
+                      "Cx3cr1", "Tcf7", "Tbx21", "Tox", "Klrb1c", "S1pr5",
+                      "S1pr1", "Myb", "Cd101", "Zfp683", "Cd69", "Bach2")
+
+topgenes_symbols <- c("Slamf6", "Cx3cr1", "Havcr2", 
+                      "Tcf7", "Lef1", "Id3", "Sell", "Klrb1c", "Cd7")
+
+strip_chart <-
+  counts_scaled %>%
+  
+  dplyr::filter(timepoint == "late") %>%
+  # dplyr::filter(tissue == "BM") %>%
+  
+  mutate(tis_cel = as.factor(paste0(timepoint, "_", tissue, "_", cell.type))) %>%
+  
+  # extract counts for top differentially expressed genes
+  filter(feature %in% topgenes_symbols) %>%
+  
+  # make stripchart
+  ggplot(aes(x = tis_cel, y = counts_scaled + 1, fill = tis_cel, label = "")) +
+  geom_boxplot() +
+  geom_jitter() +
+  facet_wrap(~ feature) +
+  scale_y_continuous(trans = "log10") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+strip_chart
+
+ grcm38[grep("Def", grcm38$symbol),] %>% select(ensgene, symbol) %>% as.data.frame()
+
+
 
 ################# BM signature #################################################
 tpex_sig <- TPEX_de %>% filter(.abundant) %>%
