@@ -507,7 +507,7 @@ topgenes_symbols <- c("Tcf7", "Lef1", "Id3", "Bach2",
                       "Tbx21", "Tox", "Myb", "Eomes",
                       "Prdm1")
 
-topgenes_symbols <- c("Id3")
+topgenes_symbols <- c("Mpo")
 
 strip_chart <-
   counts_scaled %>%
@@ -525,7 +525,7 @@ strip_chart <-
   geom_boxplot() +
   geom_jitter() +
   facet_wrap(~ feature) +
-  # scale_y_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 strip_chart
