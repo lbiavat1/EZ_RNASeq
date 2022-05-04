@@ -507,7 +507,7 @@ topgenes_symbols <- c("Tcf7", "Lef1", "Id3", "Bach2",
                       "Tbx21", "Tox", "Myb", "Eomes",
                       "Prdm1")
 
-topgenes_symbols <- c("Mpo")
+topgenes_symbols <- c("Prss34")
 
 strip_chart <-
   counts_scaled %>%
@@ -525,7 +525,7 @@ strip_chart <-
   geom_boxplot() +
   geom_jitter() +
   facet_wrap(~ feature) +
-  scale_y_continuous(trans = "log10") +
+  # scale_y_continuous(trans = "log10") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 strip_chart
@@ -813,21 +813,36 @@ pdf(file = file.path(plotDir, "heatmap_top500_ALL_NAMES.pdf"))
 hm
 dev.off()
 
+counts_rescaled <- counts %>%
+  dplyr::select(feature, sample, counts, tissue, cell.type, timepoint, mouse, sampleName) %>%
+  identify_abundant(factor_of_interest = tissue, minimum_counts = 500, minimum_proportion = 1) %>%
+  scale_abundance(method = "TMM")
+
+counts_rescaled %>%
+  filter(.abundant) %>%
+  pivot_longer(cols = c("counts", "counts_scaled"), names_to = "source", values_to = "abundance") %>%
+  ggplot(aes(x = sample, y = abundance + 1, fill = tissue)) +
+  geom_boxplot() +
+  geom_hline(aes(yintercept = median(abundance + 1)), colour="red") +
+  facet_wrap(~source) +
+  scale_y_log10() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
 # DESeq2
-counts_de_DESeq2 <- counts_scaled %>%
-  dplyr::filter(timepoint == "late") %>%
+counts_de_DESeq2 <- counts_rescaled %>%
+  # dplyr::filter(timepoint == "late") %>%
   test_differential_abundance(
-    .formula = ~ 0 + tissue + mouse,
+    .formula = ~ 0 + tissue,
     .contrasts = list(c("tissue", "BM", "TUM")),
     method = "DESeq2",
     omit_contrast_in_colnames = TRUE
   )
 
 # edgeR
-counts_de <- counts_scaled %>%
-  dplyr::filter(timepoint == "late") %>%
+counts_de <- counts_rescaled %>%
+  # dplyr::filter(timepoint == "late") %>%
   test_differential_abundance(
-    .formula = ~ 0 + tissue + mouse,
+    .formula = ~ 0 + tissue,
     .contrasts = c("tissueBM - tissueTUM"),
     method = "edgeR_quasi_likelihood",
     omit_contrast_in_colnames = TRUE
@@ -851,6 +866,51 @@ counts_de %>% filter(.abundant) %>%
   dplyr::select(feature, logFC, FDR) %>%
   distinct() %>%
   write_csv(file.path(saveDir, "BMvsTUM_de.csv"))
+
+counts_de_DESeq2 %>% filter(.abundant) %>% filter(padj < 0.05) %>%
+  arrange(desc(log2FoldChange)) %>%
+  group_by(tissue, feature) %>%
+  mutate(test = ifelse(counts_scaled > 500, 1, 0)) %>%
+  mutate(tissue_ab = sum(test)) %>%
+  filter(tissue_ab == 10) %>%
+  select(feature, tissue, test, tissue_ab) %>% distinct() %>% pull(feature) %>% head(60)
+
+  mutate(sum = sum(test)) %>%
+  mutate(BM_up = (tissue == "BM" & sum == 10)) %>%
+  mutate(TUM_lo = (tissue == "TUM" & sum < 7)) %>% select(feature, counts_scaled, BM_up, TUM_lo) %>%
+  filter(BM_up & TUM_lo) 
+
+
+"Cd7" %in% ft
+  
+counts_de_DESeq2 %>% filter(.abundant) %>% filter(padj < 0.05) %>%
+  arrange(log2FoldChange) %>% select(feature, log2FoldChange, padj) %>%
+  distinct() %>% as_data_frame() %>% head(20)
+
+topgenes_symbols <- c("Lef1", "Cd7", "Ptpn4", "Rasgrp2", "S1pr1", "Runx1", "Rasa3")
+topgenes_symbols <- c("S1pr1")
+
+strip_chart <-
+  counts_scaled %>%
+  
+  # dplyr::filter(timepoint == "late") %>%
+  # dplyr::filter(tissue == "BM") %>%
+  
+  mutate(tis_cel = as.factor(paste0(timepoint, "_", tissue, "_", cell.type))) %>%
+  
+  # extract counts for top differentially expressed genes
+  filter(feature %in% topgenes_symbols) %>%
+  
+  # make stripchart
+  ggplot(aes(x = tis_cel, y = counts_scaled + 1, fill = tis_cel, label = "")) +
+  geom_boxplot() +
+  geom_jitter() +
+  facet_wrap(~ feature) +
+  scale_y_continuous(trans = "log10") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+strip_chart
+
 
 topgenes <-
   counts_de %>%
@@ -882,4 +942,84 @@ volcano <- counts_de %>%
   theme_bw()
 volcano
 
+abILTCK_sig <- read_csv("abILTCK_signature.csv")
+abILTCK_sig <- abILTCK_sig %>% 
+  mutate(term = "abILTCK_SIG") %>%
+  select(term, symbol) %>%
+  rename("gene" = symbol)
+
+
+TPEX_rnk <- TPEX_DESeq2 %>%
+  filter(.abundant) %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.05 & abs(log2FoldChange) >= 2.0) %>%
+  filter(significant) %>%
+  dplyr::select(feature, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(feature) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()
+length(TPEX_rnk)
+library(DOSE)
+library(clusterProfiler)
+library(enrichplot)
+TPEX_gsea <- GSEA(TPEX_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+                  TERM2GENE = abILTCK_sig, by = "fgsea")
+gseaplot2(TPEX_gsea, geneSetID = "abILTCK_SIG")
+TPEX_rnk[names(TPEX_rnk) %in% abILTCK_sig$gene]
+
+TEFF_rnk <- TEFF_DESeq2 %>%
+  filter(.abundant) %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.05 & abs(log2FoldChange) >= 2.0) %>%
+  filter(significant) %>%
+  dplyr::select(feature, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(feature) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()
+TEFF_gsea <- GSEA(TEFF_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+                  TERM2GENE = abILTCK_sig, by = "fgsea")
+
+TEFF_rnk[names(TEFF_rnk) %in% abILTCK_sig$gene]
+gseaplot2(TPEX_gsea, geneSetID = "abILTCK_SIG")
+
+BM_DESeq2 <- BM %>%
+  # dplyr::filter(cell.type == "TPEX") %>%
+  test_differential_abundance(
+    .formula = ~ 0 + timepoint,
+    .contrasts = list(c("timepoint", "early", "late")),
+    method = "DESeq2",
+    omit_contrast_in_colnames = TRUE
+  )
+mm <- BM_DESeq2 %>% filter(.abundant) %>% filter(padj < 0.05) %>%
+  filter(abs(log2FoldChange) > 1.5) %>%
+  select(feature, log2FoldChange, padj) %>%
+  arrange(desc(log2FoldChange)) %>%
+  distinct()
+mm[grepl("Mpo", mm$feature),]
+mm[grepl("", mm$feature),]
+
+
+BM_rnk <- BM_DESeq2 %>%
+  filter(.abundant) %>%
+  mutate(padj = ifelse(is.na(padj), 1, padj)) %>%
+  mutate(significant = padj < 0.05 & abs(log2FoldChange) >= 2.0) %>%
+  filter(significant) %>%
+  dplyr::select(feature, stat) %>%
+  na.omit() %>%
+  distinct() %>%
+  group_by(feature) %>%
+  summarise(stat = mean(stat)) %>%
+  arrange(desc(stat)) %>%
+  deframe()
+BM_gsea <- GSEA(BM_rnk, exponent = 1, minGSSize = 5, maxGSSize = 500, eps = 0, pvalueCutoff = 0.05,
+                  TERM2GENE = abILTCK_sig, by = "fgsea")
+
+BM_rnk[names(BM_rnk) %in% abILTCK_sig$gene]
+gseaplot2(TPEX_gsea, geneSetID = "abILTCK_SIG")
 
