@@ -1,6 +1,5 @@
 rm(list = ls())
 
-
 # tidyverse-friendly
 library(tidyverse)
 library(tidybulk)
@@ -196,6 +195,9 @@ TUM
 TPEX_PCA <- TPEX %>%
   reduce_dimensions(method = "PCA", top = 500)
 attr(TPEX_PCA, "internals")$PCA
+
+tidy(attr(TPEX_PCA, "internals")$PCA, matrix = "eigenvalues")
+
 
 TPEX_PCA %>%
   # mutate(tis_cel = paste(tissue, cell.type, sep = "_")) %>%
@@ -507,7 +509,7 @@ topgenes_symbols <- c("Tcf7", "Lef1", "Id3", "Bach2",
                       "Tbx21", "Tox", "Myb", "Eomes",
                       "Prdm1")
 
-topgenes_symbols <- c("Prss34")
+topgenes_symbols <- c("Ciita")
 
 strip_chart <-
   counts_scaled %>%
@@ -888,7 +890,7 @@ counts_de_DESeq2 %>% filter(.abundant) %>% filter(padj < 0.05) %>%
   distinct() %>% as_data_frame() %>% head(20)
 
 topgenes_symbols <- c("Lef1", "Cd7", "Ptpn4", "Rasgrp2", "S1pr1", "Runx1", "Rasa3")
-topgenes_symbols <- c("S1pr1")
+topgenes_symbols <- c("")
 
 strip_chart <-
   counts_scaled %>%
